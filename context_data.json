@@ -1,1 +1,20 @@
-{}
+{
+  "test_context": [
+    {
+      "timestamp": "2025-07-17T21:32:55.918553+00:00",
+      "role": "system",
+      "content": "This is a test context entry",
+      "metadata": {
+        "test": true
+      }
+    },
+    {
+      "timestamp": "2025-07-17T21:37:13.945772+00:00",
+      "role": "system",
+      "content": "This is a test context entry",
+      "metadata": {
+        "test": true
+      }
+    }
+  ]
+}
