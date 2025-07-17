@@ -1,8 +1,22 @@
 # 🧠 Personal MCP Server
 
-This is a robust FastAPI-based server that implements a **Model Context Protocol (MCP)**. It lets you stream structured context from your apps, repos, or tools into a persistent memory buffer — ideal for syncing with LLMs like ChatGPT in real-time.
+This is a comprehensive **Model Context Protocol (MCP)** server that provides access to your git repositories and personal files. It includes both a FastAPI-based context storage server and a proper MCP server that integrates with Cline and other MCP clients.
 
-> Think of it as your developer brain: a programmable memory stream for code, tasks, context, and conversation with persistent storage and advanced features.
+> Think of it as your developer brain: access to all your projects, repositories, and files through a unified interface with powerful tools for git operations, file management, and context storage.
+
+## 🎯 Two Server Options
+
+### 1. **MCP Server** (Recommended for Cline)
+- **File**: `mcp_server.py`
+- **Purpose**: Direct integration with Cline via MCP protocol
+- **Features**: Git repository access, file operations, directory browsing
+- **Usage**: Connects directly to Cline as an MCP server
+
+### 2. **FastAPI Context Server**
+- **File**: `personal_mcp_server.py` 
+- **Purpose**: HTTP API for context storage and retrieval
+- **Features**: Persistent context storage, REST API endpoints
+- **Usage**: Standalone web service for context management
 
 ---
 
@@ -152,7 +166,89 @@ Interactive OpenAPI documentation (Swagger UI) for testing endpoints.
 
 ---
 
-## 🛠️ Local Development
+## 🚀 Quick Setup for Cline Integration
+
+### Automatic Setup (Recommended)
+
+Run the setup script to automatically install dependencies and configure Cline:
+
+```bash
+python setup_mcp.py
+```
+
+This will:
+- Install all required Python dependencies
+- Test the MCP server functionality
+- Automatically configure Cline to use the MCP server
+- Provide next steps for usage
+
+### Manual Setup
+
+1. **Install Dependencies:**
+```bash
+pip install -r requirements.txt
+```
+
+2. **Test the MCP Server:**
+```bash
+python mcp_server.py
+```
+
+3. **Configure Cline:**
+Add this configuration to your Cline MCP servers settings:
+```json
+{
+  "mcpServers": {
+    "personal-mcp-server": {
+      "command": "python",
+      "args": ["mcp_server.py"],
+      "cwd": "/Users/liadmatus/Documents/Personal-MCP-Server"
+    }
+  }
+}
+```
+
+4. **Restart Cline/VSCode**
+
+---
+
+## 🔧 MCP Server Tools & Resources
+
+### Available Tools
+
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `list_git_repos` | List all git repositories in common directories | `search_path` (optional) |
+| `get_repo_status` | Get detailed status of a specific git repository | `repo_name` (required) |
+| `git_command` | Execute a git command in a specific repository | `repo_name`, `command` (required) |
+| `read_file` | Read the contents of any file | `file_path` (required) |
+| `write_file` | Write content to a file | `file_path`, `content` (required) |
+| `list_directory` | List contents of a directory | `directory_path` (required), `include_hidden` (optional) |
+| `search_files` | Search for files by name or content | `search_path`, `pattern` (required), `search_content` (optional) |
+
+### Available Resources
+
+| Resource | Description | URI Pattern |
+|----------|-------------|-------------|
+| Git Repositories | Information about your git repos | `git://repo/{repo_name}` |
+| Documents Directory | Files in your Documents folder | `file://directory/documents` |
+| Desktop Directory | Files in your Desktop folder | `file://directory/desktop` |
+| Downloads Directory | Files in your Downloads folder | `file://directory/downloads` |
+
+### Example Usage in Cline
+
+Once connected, you can ask Cline to:
+
+- **"List all my git repositories"** - Uses `list_git_repos` tool
+- **"Show me the status of my project-name repository"** - Uses `get_repo_status` tool  
+- **"Run git status in my project-name repo"** - Uses `git_command` tool
+- **"Read the README file from /path/to/file"** - Uses `read_file` tool
+- **"Search for Python files in my Documents"** - Uses `search_files` tool
+- **"What files are in my Desktop?"** - Uses `list_directory` tool
+
+---
+
+## 🛠️ Local Development (FastAPI Server)
 
 Install dependencies:
 
