@@ -47,6 +47,7 @@ Add this to your Cline MCP settings:
 
 ## 🛠️ Available Tools (MCP)
 
+### Core Tools:
 | Tool | Description | Example Usage |
 |------|-------------|---------------|
 | `list_git_repos` | List all git repositories | "Show me all my git projects" |
@@ -58,6 +59,24 @@ Add this to your Cline MCP settings:
 | `search_files` | Search files by name/content | "Find all Python files in my projects" |
 | `add_context` | Store context data | "Remember this information" |
 | `get_context` | Retrieve stored context | "What did I save about this project?" |
+
+### Advanced Git Tools:
+| Tool | Description | Example Usage |
+|------|-------------|---------------|
+| `git_branch` | Branch operations (list, create, switch, delete) | "Create a new feature branch" |
+| `git_diff` | Show git diff for files or commits | "Show me what changed in this file" |
+| `git_commit` | Create commits with staged changes | "Commit my changes with a message" |
+
+### Advanced File Tools:
+| Tool | Description | Example Usage |
+|------|-------------|---------------|
+| `batch_file_operation` | Batch operations on multiple files | "Copy all .py files to backup folder" |
+| `create_project_template` | Create new projects from templates | "Create a new React project" |
+
+### Context Intelligence:
+| Tool | Description | Example Usage |
+|------|-------------|---------------|
+| `search_context` | Search through stored context with filters | "Find all context about React projects" |
 
 ## 📚 Available Resources (MCP)
 
@@ -94,12 +113,15 @@ This tests both MCP functionality and HTTP API endpoints.
 - my-diy-assistant
 - mcp-server
 
-✅ **9 MCP Tools Available**
+✅ **15 MCP Tools Available** (Enhanced!)
 ✅ **6 MCP Resources Available**
 ✅ **Full HTTP API with FastAPI**
 ✅ **Persistent Context Storage**
-✅ **Git Integration with GitPython**
+✅ **Advanced Git Integration with GitPython**
 ✅ **File System Access with Security**
+✅ **Project Template Generation**
+✅ **Batch File Operations**
+✅ **Context Search & Intelligence**
 
 ## 🔄 Migration from Old Servers
 

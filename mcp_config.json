@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "unified-personal-mcp-server": {
-      "command": "python3",
-      "args": ["unified_mcp_server.py"],
-      "cwd": "/Users/liadmatus/Documents/Personal-MCP-Server"
-    }
-  }
-}

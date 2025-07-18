@@ -536,6 +536,167 @@ async def handle_list_tools() -> List[Tool]:
                 },
                 "required": ["target"]
             }
+        ),
+        Tool(
+            name="git_branch",
+            description="Git branch operations (list, create, switch, delete)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo_name": {
+                        "type": "string",
+                        "description": "Name of the repository"
+                    },
+                    "action": {
+                        "type": "string",
+                        "enum": ["list", "create", "switch", "delete"],
+                        "description": "Branch operation to perform"
+                    },
+                    "branch_name": {
+                        "type": "string",
+                        "description": "Branch name (required for create, switch, delete)"
+                    }
+                },
+                "required": ["repo_name", "action"]
+            }
+        ),
+        Tool(
+            name="git_diff",
+            description="Show git diff for files or commits",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo_name": {
+                        "type": "string",
+                        "description": "Name of the repository"
+                    },
+                    "file_path": {
+                        "type": "string",
+                        "description": "Optional specific file to diff"
+                    },
+                    "commit_range": {
+                        "type": "string",
+                        "description": "Optional commit range (e.g., 'HEAD~1..HEAD')"
+                    },
+                    "staged": {
+                        "type": "boolean",
+                        "description": "Show staged changes",
+                        "default": False
+                    }
+                },
+                "required": ["repo_name"]
+            }
+        ),
+        Tool(
+            name="git_commit",
+            description="Create a git commit with staged changes",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo_name": {
+                        "type": "string",
+                        "description": "Name of the repository"
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "Commit message"
+                    },
+                    "add_all": {
+                        "type": "boolean",
+                        "description": "Add all changes before committing",
+                        "default": False
+                    }
+                },
+                "required": ["repo_name", "message"]
+            }
+        ),
+        Tool(
+            name="batch_file_operation",
+            description="Perform batch operations on multiple files",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "operation": {
+                        "type": "string",
+                        "enum": ["copy", "move", "delete", "rename"],
+                        "description": "Operation to perform"
+                    },
+                    "files": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of file paths"
+                    },
+                    "destination": {
+                        "type": "string",
+                        "description": "Destination path (for copy/move operations)"
+                    },
+                    "pattern": {
+                        "type": "string",
+                        "description": "Rename pattern with {name} placeholder"
+                    }
+                },
+                "required": ["operation", "files"]
+            }
+        ),
+        Tool(
+            name="search_context",
+            description="Search through stored context with filters",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search query"
+                    },
+                    "stream_filter": {
+                        "type": "string",
+                        "description": "Filter by specific stream ID"
+                    },
+                    "date_from": {
+                        "type": "string",
+                        "description": "Filter from date (ISO format)"
+                    },
+                    "date_to": {
+                        "type": "string",
+                        "description": "Filter to date (ISO format)"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum results to return",
+                        "default": 50,
+                        "maximum": 200
+                    }
+                },
+                "required": ["query"]
+            }
+        ),
+        Tool(
+            name="create_project_template",
+            description="Create a new project from template",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "template_type": {
+                        "type": "string",
+                        "enum": ["python", "javascript", "react", "fastapi", "mcp-server"],
+                        "description": "Type of project template"
+                    },
+                    "project_name": {
+                        "type": "string",
+                        "description": "Name of the new project"
+                    },
+                    "destination": {
+                        "type": "string",
+                        "description": "Destination directory"
+                    },
+                    "git_init": {
+                        "type": "boolean",
+                        "description": "Initialize git repository",
+                        "default": True
+                    }
+                },
+                "required": ["template_type", "project_name", "destination"]
+            }
         )
     ]
 
@@ -821,6 +982,430 @@ async def handle_call_tool(name: str, arguments: Dict[str, Any]) -> List[TextCon
                 text=json.dumps({"messages": messages}, indent=2)
             )]
         
+        elif name == "git_branch":
+            repo_name = arguments["repo_name"]
+            action = arguments["action"]
+            branch_name = arguments.get("branch_name")
+            
+            # Find the repository
+            repo_path = None
+            for search_dir in [PROJECTS_DIR, DESKTOP_DIR]:
+                if search_dir.exists():
+                    repos = find_git_repositories(search_dir)
+                    for rp in repos:
+                        if rp.name == repo_name:
+                            repo_path = rp
+                            break
+                if repo_path:
+                    break
+            
+            if not repo_path:
+                return [TextContent(
+                    type="text",
+                    text=json.dumps({"error": f"Repository '{repo_name}' not found"})
+                )]
+            
+            try:
+                repo = Repo(repo_path)
+                
+                if action == "list":
+                    branches = []
+                    for branch in repo.branches:
+                        branches.append({
+                            "name": branch.name,
+                            "is_current": branch == repo.active_branch,
+                            "commit": branch.commit.hexsha[:8],
+                            "message": branch.commit.message.strip()
+                        })
+                    
+                    return [TextContent(
+                        type="text",
+                        text=json.dumps({"branches": branches}, indent=2)
+                    )]
+                
+                elif action == "create":
+                    if not branch_name:
+                        return [TextContent(
+                            type="text",
+                            text=json.dumps({"error": "branch_name required for create action"})
+                        )]
+                    
+                    new_branch = repo.create_head(branch_name)
+                    return [TextContent(
+                        type="text",
+                        text=json.dumps({
+                            "action": "created",
+                            "branch": branch_name,
+                            "commit": new_branch.commit.hexsha[:8]
+                        }, indent=2)
+                    )]
+                
+                elif action == "switch":
+                    if not branch_name:
+                        return [TextContent(
+                            type="text",
+                            text=json.dumps({"error": "branch_name required for switch action"})
+                        )]
+                    
+                    repo.heads[branch_name].checkout()
+                    return [TextContent(
+                        type="text",
+                        text=json.dumps({
+                            "action": "switched",
+                            "branch": branch_name,
+                            "commit": repo.active_branch.commit.hexsha[:8]
+                        }, indent=2)
+                    )]
+                
+                elif action == "delete":
+                    if not branch_name:
+                        return [TextContent(
+                            type="text",
+                            text=json.dumps({"error": "branch_name required for delete action"})
+                        )]
+                    
+                    repo.delete_head(branch_name)
+                    return [TextContent(
+                        type="text",
+                        text=json.dumps({
+                            "action": "deleted",
+                            "branch": branch_name
+                        }, indent=2)
+                    )]
+                
+            except Exception as e:
+                return [TextContent(
+                    type="text",
+                    text=json.dumps({"error": f"Git branch operation failed: {e}"})
+                )]
+        
+        elif name == "git_diff":
+            repo_name = arguments["repo_name"]
+            file_path = arguments.get("file_path")
+            commit_range = arguments.get("commit_range")
+            staged = arguments.get("staged", False)
+            
+            # Find the repository
+            repo_path = None
+            for search_dir in [PROJECTS_DIR, DESKTOP_DIR]:
+                if search_dir.exists():
+                    repos = find_git_repositories(search_dir)
+                    for rp in repos:
+                        if rp.name == repo_name:
+                            repo_path = rp
+                            break
+                if repo_path:
+                    break
+            
+            if not repo_path:
+                return [TextContent(
+                    type="text",
+                    text=json.dumps({"error": f"Repository '{repo_name}' not found"})
+                )]
+            
+            try:
+                cmd_parts = ["git", "diff"]
+                
+                if staged:
+                    cmd_parts.append("--staged")
+                
+                if commit_range:
+                    cmd_parts.append(commit_range)
+                
+                if file_path:
+                    cmd_parts.append("--")
+                    cmd_parts.append(file_path)
+                
+                result = subprocess.run(
+                    cmd_parts,
+                    cwd=repo_path,
+                    capture_output=True,
+                    text=True,
+                    timeout=30
+                )
+                
+                return [TextContent(
+                    type="text",
+                    text=json.dumps({
+                        "diff": result.stdout,
+                        "file_path": file_path,
+                        "commit_range": commit_range,
+                        "staged": staged
+                    }, indent=2)
+                )]
+                
+            except Exception as e:
+                return [TextContent(
+                    type="text",
+                    text=json.dumps({"error": f"Git diff failed: {e}"})
+                )]
+        
+        elif name == "git_commit":
+            repo_name = arguments["repo_name"]
+            message = arguments["message"]
+            add_all = arguments.get("add_all", False)
+            
+            # Find the repository
+            repo_path = None
+            for search_dir in [PROJECTS_DIR, DESKTOP_DIR]:
+                if search_dir.exists():
+                    repos = find_git_repositories(search_dir)
+                    for rp in repos:
+                        if rp.name == repo_name:
+                            repo_path = rp
+                            break
+                if repo_path:
+                    break
+            
+            if not repo_path:
+                return [TextContent(
+                    type="text",
+                    text=json.dumps({"error": f"Repository '{repo_name}' not found"})
+                )]
+            
+            try:
+                repo = Repo(repo_path)
+                
+                if add_all:
+                    repo.git.add(A=True)
+                
+                commit = repo.index.commit(message)
+                
+                return [TextContent(
+                    type="text",
+                    text=json.dumps({
+                        "commit_hash": commit.hexsha[:8],
+                        "message": message,
+                        "author": str(commit.author),
+                        "files_changed": len(commit.stats.files)
+                    }, indent=2)
+                )]
+                
+            except Exception as e:
+                return [TextContent(
+                    type="text",
+                    text=json.dumps({"error": f"Git commit failed: {e}"})
+                )]
+        
+        elif name == "batch_file_operation":
+            operation = arguments["operation"]
+            files = arguments["files"]
+            destination = arguments.get("destination")
+            pattern = arguments.get("pattern")
+            
+            try:
+                import shutil
+                results = []
+                
+                for file_path in files:
+                    file_obj = Path(file_path)
+                    
+                    if not file_obj.exists():
+                        results.append({"file": file_path, "status": "error", "message": "File not found"})
+                        continue
+                    
+                    try:
+                        if operation == "copy":
+                            if not destination:
+                                results.append({"file": file_path, "status": "error", "message": "Destination required"})
+                                continue
+                            dest_path = Path(destination) / file_obj.name
+                            shutil.copy2(file_obj, dest_path)
+                            results.append({"file": file_path, "status": "success", "destination": str(dest_path)})
+                        
+                        elif operation == "move":
+                            if not destination:
+                                results.append({"file": file_path, "status": "error", "message": "Destination required"})
+                                continue
+                            dest_path = Path(destination) / file_obj.name
+                            shutil.move(str(file_obj), str(dest_path))
+                            results.append({"file": file_path, "status": "success", "destination": str(dest_path)})
+                        
+                        elif operation == "delete":
+                            if file_obj.is_file():
+                                file_obj.unlink()
+                            else:
+                                shutil.rmtree(file_obj)
+                            results.append({"file": file_path, "status": "success", "message": "Deleted"})
+                        
+                        elif operation == "rename":
+                            if not pattern:
+                                results.append({"file": file_path, "status": "error", "message": "Pattern required"})
+                                continue
+                            new_name = pattern.replace("{name}", file_obj.stem)
+                            new_path = file_obj.parent / (new_name + file_obj.suffix)
+                            file_obj.rename(new_path)
+                            results.append({"file": file_path, "status": "success", "new_name": str(new_path)})
+                    
+                    except Exception as e:
+                        results.append({"file": file_path, "status": "error", "message": str(e)})
+                
+                return [TextContent(
+                    type="text",
+                    text=json.dumps({"operation": operation, "results": results}, indent=2)
+                )]
+                
+            except Exception as e:
+                return [TextContent(
+                    type="text",
+                    text=json.dumps({"error": f"Batch operation failed: {e}"})
+                )]
+        
+        elif name == "search_context":
+            query = arguments["query"]
+            stream_filter = arguments.get("stream_filter")
+            date_from = arguments.get("date_from")
+            date_to = arguments.get("date_to")
+            limit = arguments.get("limit", 50)
+            
+            try:
+                from datetime import datetime
+                results = []
+                
+                for stream_id, messages in context_store.data.items():
+                    if stream_filter and stream_id != stream_filter:
+                        continue
+                    
+                    for message in messages:
+                        # Date filtering
+                        if date_from or date_to:
+                            msg_date = datetime.fromisoformat(message["timestamp"].replace('Z', '+00:00'))
+                            if date_from and msg_date < datetime.fromisoformat(date_from):
+                                continue
+                            if date_to and msg_date > datetime.fromisoformat(date_to):
+                                continue
+                        
+                        # Text search
+                        if query.lower() in message["content"].lower():
+                            results.append({
+                                "stream_id": stream_id,
+                                "timestamp": message["timestamp"],
+                                "content": message["content"],
+                                "metadata": message.get("metadata", {}),
+                                "match_score": message["content"].lower().count(query.lower())
+                            })
+                
+                # Sort by relevance (match score) and date
+                results.sort(key=lambda x: (x["match_score"], x["timestamp"]), reverse=True)
+                results = results[:limit]
+                
+                return [TextContent(
+                    type="text",
+                    text=json.dumps({
+                        "query": query,
+                        "total_results": len(results),
+                        "results": results
+                    }, indent=2)
+                )]
+                
+            except Exception as e:
+                return [TextContent(
+                    type="text",
+                    text=json.dumps({"error": f"Context search failed: {e}"})
+                )]
+        
+        elif name == "create_project_template":
+            template_type = arguments["template_type"]
+            project_name = arguments["project_name"]
+            destination = arguments["destination"]
+            git_init = arguments.get("git_init", True)
+            
+            try:
+                project_path = Path(destination) / project_name
+                project_path.mkdir(parents=True, exist_ok=True)
+                
+                # Template configurations
+                templates = {
+                    "python": {
+                        "files": {
+                            "main.py": "#!/usr/bin/env python3\n\ndef main():\n    print('Hello, World!')\n\nif __name__ == '__main__':\n    main()\n",
+                            "requirements.txt": "# Add your dependencies here\n",
+                            "README.md": f"# {project_name}\n\nA Python project.\n\n## Installation\n\n```bash\npip install -r requirements.txt\n```\n\n## Usage\n\n```bash\npython main.py\n```\n",
+                            ".gitignore": "__pycache__/\n*.pyc\n*.pyo\n*.pyd\n.Python\nbuild/\ndevelop-eggs/\ndist/\ndownloads/\neggs/\n.eggs/\nlib/\nlib64/\nparts/\nsdist/\nvar/\nwheels/\n*.egg-info/\n.installed.cfg\n*.egg\n"
+                        }
+                    },
+                    "javascript": {
+                        "files": {
+                            "index.js": "console.log('Hello, World!');\n",
+                            "package.json": f'{{\n  "name": "{project_name}",\n  "version": "1.0.0",\n  "description": "",\n  "main": "index.js",\n  "scripts": {{\n    "start": "node index.js"\n  }},\n  "keywords": [],\n  "author": "",\n  "license": "ISC"\n}}\n',
+                            "README.md": f"# {project_name}\n\nA JavaScript project.\n\n## Installation\n\n```bash\nnpm install\n```\n\n## Usage\n\n```bash\nnpm start\n```\n",
+                            ".gitignore": "node_modules/\nnpm-debug.log*\nyarn-debug.log*\nyarn-error.log*\n.env\n"
+                        }
+                    },
+                    "react": {
+                        "files": {
+                            "package.json": f'{{\n  "name": "{project_name}",\n  "version": "0.1.0",\n  "private": true,\n  "dependencies": {{\n    "react": "^18.2.0",\n    "react-dom": "^18.2.0",\n    "react-scripts": "5.0.1"\n  }},\n  "scripts": {{\n    "start": "react-scripts start",\n    "build": "react-scripts build",\n    "test": "react-scripts test",\n    "eject": "react-scripts eject"\n  }}\n}}\n',
+                            "public/index.html": f'<!DOCTYPE html>\n<html lang="en">\n<head>\n    <meta charset="utf-8" />\n    <meta name="viewport" content="width=device-width, initial-scale=1" />\n    <title>{project_name}</title>\n</head>\n<body>\n    <div id="root"></div>\n</body>\n</html>\n',
+                            "src/App.js": f'import React from \'react\';\n\nfunction App() {{\n  return (\n    <div>\n      <h1>Welcome to {project_name}</h1>\n      <p>Your React app is ready!</p>\n    </div>\n  );\n}}\n\nexport default App;\n',
+                            "src/index.js": "import React from 'react';\nimport ReactDOM from 'react-dom/client';\nimport App from './App';\n\nconst root = ReactDOM.createRoot(document.getElementById('root'));\nroot.render(<App />);\n",
+                            "README.md": f"# {project_name}\n\nA React application.\n\n## Installation\n\n```bash\nnpm install\n```\n\n## Usage\n\n```bash\nnpm start\n```\n",
+                            ".gitignore": "node_modules/\nbuild/\n.env\nnpm-debug.log*\nyarn-debug.log*\nyarn-error.log*\n"
+                        }
+                    },
+                    "fastapi": {
+                        "files": {
+                            "main.py": f'from fastapi import FastAPI\nfrom fastapi.middleware.cors import CORSMiddleware\n\napp = FastAPI(title="{project_name}", version="1.0.0")\n\napp.add_middleware(\n    CORSMiddleware,\n    allow_origins=["*"],\n    allow_credentials=True,\n    allow_methods=["*"],\n    allow_headers=["*"],\n)\n\n@app.get("/")\nasync def root():\n    return {{"message": "Hello from {project_name}!"}}\n\n@app.get("/health")\nasync def health():\n    return {{"status": "healthy"}}\n\nif __name__ == "__main__":\n    import uvicorn\n    uvicorn.run(app, host="0.0.0.0", port=8000)\n',
+                            "requirements.txt": "fastapi>=0.104.0\nuvicorn[standard]>=0.24.0\npydantic>=2.0.0\n",
+                            "README.md": f"# {project_name}\n\nA FastAPI application.\n\n## Installation\n\n```bash\npip install -r requirements.txt\n```\n\n## Usage\n\n```bash\npython main.py\n```\n\nAPI docs available at: http://localhost:8000/docs\n",
+                            ".gitignore": "__pycache__/\n*.pyc\n.env\n.venv/\nvenv/\n"
+                        }
+                    },
+                    "mcp-server": {
+                        "files": {
+                            "server.py": f'#!/usr/bin/env python3\n"""\n{project_name} MCP Server\n"""\n\nimport asyncio\nimport json\nfrom mcp.server import Server\nfrom mcp.server.models import InitializationOptions\nfrom mcp.server.stdio import stdio_server\nfrom mcp.types import Resource, Tool, TextContent\n\nserver = Server("{project_name.lower().replace(" ", "-")}")\n\n@server.list_tools()\nasync def handle_list_tools():\n    return [\n        Tool(\n            name="hello",\n            description="Say hello",\n            inputSchema={{\n                "type": "object",\n                "properties": {{\n                    "name": {{\n                        "type": "string",\n                        "description": "Name to greet"\n                    }}\n                }},\n                "required": ["name"]\n            }}\n        )\n    ]\n\n@server.call_tool()\nasync def handle_call_tool(name: str, arguments: dict):\n    if name == "hello":\n        name_arg = arguments.get("name", "World")\n        return [TextContent(\n            type="text",\n            text=f"Hello, {{name_arg}}!"\n        )]\n    else:\n        raise ValueError(f"Unknown tool: {{name}}")\n\nasync def main():\n    async with stdio_server() as (read_stream, write_stream):\n        await server.run(\n            read_stream,\n            write_stream,\n            InitializationOptions(\n                server_name="{project_name.lower().replace(" ", "-")}",\n                server_version="1.0.0",\n                capabilities=server.get_capabilities(\n                    notification_options=None,\n                    experimental_capabilities=None,\n                )\n            )\n        )\n\nif __name__ == "__main__":\n    asyncio.run(main())\n',
+                            "requirements.txt": "mcp>=1.0.0\n",
+                            "README.md": f"# {project_name}\n\nAn MCP (Model Context Protocol) server.\n\n## Installation\n\n```bash\npip install -r requirements.txt\n```\n\n## Usage\n\n```bash\npython server.py\n```\n\n## Configuration\n\nAdd to your MCP client configuration:\n\n```json\n{{\n  \"mcpServers\": {{\n    \"{project_name.lower().replace(' ', '-')}\": {{\n      \"command\": \"python3\",\n      \"args\": [\"server.py\"],\n      \"cwd\": \"{project_path}\"\n    }}\n  }}\n}}\n```\n",
+                            ".gitignore": "__pycache__/\n*.pyc\n.env\n.venv/\nvenv/\n"
+                        }
+                    }
+                }
+                
+                if template_type not in templates:
+                    return [TextContent(
+                        type="text",
+                        text=json.dumps({"error": f"Unknown template type: {template_type}"})
+                    )]
+                
+                template = templates[template_type]
+                created_files = []
+                
+                # Create files
+                for file_path, content in template["files"].items():
+                    full_path = project_path / file_path
+                    full_path.parent.mkdir(parents=True, exist_ok=True)
+                    
+                    with open(full_path, 'w', encoding='utf-8') as f:
+                        f.write(content)
+                    
+                    created_files.append(str(full_path))
+                
+                # Initialize git repository
+                if git_init:
+                    try:
+                        repo = Repo.init(project_path)
+                        repo.index.add(created_files)
+                        repo.index.commit("Initial commit")
+                        created_files.append(".git (repository)")
+                    except Exception as e:
+                        logger.warning(f"Git init failed: {e}")
+                
+                return [TextContent(
+                    type="text",
+                    text=json.dumps({
+                        "project_name": project_name,
+                        "template_type": template_type,
+                        "project_path": str(project_path),
+                        "created_files": created_files,
+                        "git_initialized": git_init
+                    }, indent=2)
+                )]
+                
+            except Exception as e:
+                return [TextContent(
+                    type="text",
+                    text=json.dumps({"error": f"Project creation failed: {e}"})
+                )]
+        
         else:
             return [TextContent(
                 type="text",
@@ -1009,6 +1594,8 @@ async def root():
 
 async def run_mcp_server():
     """Run the MCP server via stdio"""
+    from mcp.types import ServerCapabilities, ToolsCapability, ResourcesCapability
+    
     async with stdio_server() as (read_stream, write_stream):
         await mcp_server.run(
             read_stream,
@@ -1016,9 +1603,9 @@ async def run_mcp_server():
             InitializationOptions(
                 server_name="unified-personal-mcp-server",
                 server_version="2.0.0",
-                capabilities=mcp_server.get_capabilities(
-                    notification_options=None,
-                    experimental_capabilities=None,
+                capabilities=ServerCapabilities(
+                    tools=ToolsCapability(listChanged=False),
+                    resources=ResourcesCapability(listChanged=False)
                 )
             )
         )

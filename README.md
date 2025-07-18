@@ -1,403 +1,242 @@
-# 🧠 Personal MCP Server
+<div align="center">
 
-This is a comprehensive **Model Context Protocol (MCP)** server that provides access to your git repositories and personal files. It includes both a FastAPI-based context storage server and a proper MCP server that integrates with Cline and other MCP clients.
+# 🚀 Personal MCP Server
 
-> Think of it as your developer brain: access to all your projects, repositories, and files through a unified interface with powerful tools for git operations, file management, and context storage.
+*A unified Model Context Protocol server that bridges AI assistants with your development workflow*
 
-## 🎯 Two Server Options
+[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com)
+[![MCP](https://img.shields.io/badge/MCP-Protocol-purple.svg)](https://modelcontextprotocol.io)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-### 1. **MCP Server** (Recommended for Cline)
-- **File**: `mcp_server.py`
-- **Purpose**: Direct integration with Cline via MCP protocol
-- **Features**: Git repository access, file operations, directory browsing
-- **Usage**: Connects directly to Cline as an MCP server
+[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [API](#-api-reference) • [Contributing](#-contributing)
 
-### 2. **FastAPI Context Server**
-- **File**: `personal_mcp_server.py` 
-- **Purpose**: HTTP API for context storage and retrieval
-- **Features**: Persistent context storage, REST API endpoints
-- **Usage**: Standalone web service for context management
+</div>
 
 ---
 
-## ⚙️ Features
+## ✨ Features
 
-- ✅ **Persistent Storage**: Context data survives server restarts via JSON file storage
-- ✅ **Input Validation**: Robust validation with proper error handling
-- ✅ **Comprehensive Logging**: Detailed logging for debugging and monitoring
-- ✅ **CORS Support**: Cross-origin requests enabled for web integration
-- ✅ **Context Management**: Add, retrieve, and delete context streams
-- ✅ **Query Limits**: Retrieve recent items with configurable limits
-- ✅ **Enhanced Status**: Detailed server status with uptime and statistics
-- ✅ **OpenAPI Documentation**: Auto-generated API docs at `/docs`
-- ✅ **Type Safety**: Full Pydantic models with proper type hints
-- ✅ **Error Handling**: Graceful error responses with proper HTTP status codes
+### 🤖 **MCP Protocol Support**
+Perfect integration with AI assistants like Cline, providing:
 
----
+- 🔧 **Git Operations** - Complete repository management
+- 📁 **File Management** - Read, write, search, and batch operations  
+- 💾 **Context Storage** - Persistent memory with search capabilities
+- 🏗️ **Project Templates** - Quick scaffolding for new projects
 
-## 🚀 API Endpoints
+### 🌐 **HTTP API Support**
+RESTful endpoints for web applications:
 
-### `POST /add_context`
-
-Adds a context item to a memory stream with validation and persistence.
-
-#### Request:
-```json
-{
-  "id": "chat_context_live",
-  "content": "Just refactored the auth service to use JWTs.",
-  "metadata": {
-    "type": "task",
-    "source": "terminal",
-    "priority": "high"
-  }
-}
-```
-
-#### Response:
-```json
-{
-  "status": "added",
-  "id": "chat_context_live",
-  "total_items": 15
-}
-```
+- 📝 **Context Management** - Add, retrieve, and organize context
+- 📊 **Repository Updates** - Specialized git workflow endpoints
+- 🔍 **Health Monitoring** - Server status and performance metrics
 
 ---
 
-### `GET /get_context?target=ID&limit=N`
+## 🚀 Installation
 
-Retrieves context items for a given target ID with optional limiting.
+### Prerequisites
+- Python 3.8 or higher
+- Git (for repository operations)
 
-#### Parameters:
-- `target` (required): Context stream ID
-- `limit` (optional): Maximum number of recent items to return (1-1000)
-
-#### Response:
-```json
-{
-  "messages": [
-    {
-      "timestamp": "2025-01-17T20:30:45.123456+00:00",
-      "role": "system",
-      "content": "Just refactored the auth service to use JWTs.",
-      "metadata": {
-        "type": "task",
-        "source": "terminal",
-        "priority": "high"
-      }
-    }
-  ]
-}
-```
-
----
-
-### `DELETE /delete_context?target=ID`
-
-Deletes all context items for a given target ID.
-
-#### Parameters:
-- `target` (required): Context stream ID to delete
-
-#### Response:
-```json
-{
-  "status": "deleted",
-  "id": "chat_context_live"
-}
-```
-
----
-
-### `POST /repos/update_context`
-
-Specialized endpoint to log repository-related updates with automatic prefixing.
-
-#### Request:
-```json
-{
-  "id": "diy-assistant-repo",
-  "content": "Updated README and added Supabase client.",
-  "metadata": {
-    "branch": "main",
-    "files": ["README.md", "supabase.ts"],
-    "commit": "abc123"
-  }
-}
-```
-
-#### Response:
-```json
-{
-  "status": "added",
-  "id": "repo_diy-assistant-repo",
-  "total_items": 8
-}
-```
-
----
-
-### `GET /status`
-
-Returns comprehensive server health check and context statistics.
-
-#### Response:
-```json
-{
-  "status": "ok",
-  "stored_contexts": ["chat_context_live", "repo_diy-assistant-repo"],
-  "total_items": 23,
-  "server_uptime": "2:15:30"
-}
-```
-
----
-
-### `GET /`
-
-Root endpoint with basic server information and navigation links.
-
----
-
-### `GET /docs`
-
-Interactive OpenAPI documentation (Swagger UI) for testing endpoints.
-
----
-
-## 🚀 Quick Setup for Cline Integration
-
-### Automatic Setup (Recommended)
-
-Run the setup script to automatically install dependencies and configure Cline:
+### Quick Start
 
 ```bash
-python setup_mcp.py
-```
+# Clone the repository
+git clone https://github.com/LiadMatus/personal-mcp-server.git
+cd personal-mcp-server
 
-This will:
-- Install all required Python dependencies
-- Test the MCP server functionality
-- Automatically configure Cline to use the MCP server
-- Provide next steps for usage
-
-### Manual Setup
-
-1. **Install Dependencies:**
-```bash
+# Install dependencies
 pip install -r requirements.txt
+
+# Run in MCP mode (for AI assistants)
+python3 mcp_server.py
+
+# Or run in HTTP mode (for web applications)
+python3 unified_mcp_server.py --http
 ```
 
-2. **Test the MCP Server:**
+---
+
+## 💡 Usage
+
+### 🔌 **MCP Mode** (AI Assistant Integration)
+
+Perfect for Cline and other MCP-compatible AI assistants:
+
 ```bash
-python mcp_server.py
+python3 mcp_server.py
 ```
 
-3. **Configure Cline:**
-Add this configuration to your Cline MCP servers settings:
+**Cline Configuration:**
 ```json
 {
   "mcpServers": {
     "personal-mcp-server": {
-      "command": "python",
+      "command": "python3",
       "args": ["mcp_server.py"],
-      "cwd": "/Users/liadmatus/Documents/Personal-MCP-Server"
+      "cwd": "/path/to/Personal-MCP-Server",
+      "type": "stdio"
     }
   }
 }
 ```
 
-4. **Restart Cline/VSCode**
+### 🌐 **HTTP Mode** (Web API)
+
+For web applications and direct API access:
+
+```bash
+python3 unified_mcp_server.py --http
+```
+
+- 🔗 **API Base**: `http://localhost:8000`
+- 📚 **Interactive Docs**: `http://localhost:8000/docs`
+- 🔍 **Health Check**: `http://localhost:8000/status`
 
 ---
 
-## 🔧 MCP Server Tools & Resources
+## 🛠️ Available Tools
 
-### Available Tools
+<details>
+<summary><strong>🔧 Git Operations</strong></summary>
 
-| Tool | Description | Parameters |
-|------|-------------|------------|
-| `list_git_repos` | List all git repositories in common directories | `search_path` (optional) |
-| `get_repo_status` | Get detailed status of a specific git repository | `repo_name` (required) |
-| `git_command` | Execute a git command in a specific repository | `repo_name`, `command` (required) |
-| `read_file` | Read the contents of any file | `file_path` (required) |
-| `write_file` | Write content to a file | `file_path`, `content` (required) |
-| `list_directory` | List contents of a directory | `directory_path` (required), `include_hidden` (optional) |
-| `search_files` | Search for files by name or content | `search_path`, `pattern` (required), `search_content` (optional) |
+- `list_git_repos` - Discover all repositories
+- `get_repo_status` - Detailed repository information
+- `git_command` - Execute any git command
+- `git_branch` - Branch management (create, switch, delete)
+- `git_diff` - View changes and diffs
+- `git_commit` - Create commits with messages
 
-### Available Resources
+</details>
 
-| Resource | Description | URI Pattern |
-|----------|-------------|-------------|
-| Git Repositories | Information about your git repos | `git://repo/{repo_name}` |
-| Documents Directory | Files in your Documents folder | `file://directory/documents` |
-| Desktop Directory | Files in your Desktop folder | `file://directory/desktop` |
-| Downloads Directory | Files in your Downloads folder | `file://directory/downloads` |
+<details>
+<summary><strong>📁 File Management</strong></summary>
 
-### Example Usage in Cline
+- `read_file` - Read file contents
+- `write_file` - Create or update files
+- `list_directory` - Browse directory contents
+- `search_files` - Find files by name or content
+- `batch_file_operation` - Bulk file operations
 
-Once connected, you can ask Cline to:
+</details>
 
-- **"List all my git repositories"** - Uses `list_git_repos` tool
-- **"Show me the status of my project-name repository"** - Uses `get_repo_status` tool  
-- **"Run git status in my project-name repo"** - Uses `git_command` tool
-- **"Read the README file from /path/to/file"** - Uses `read_file` tool
-- **"Search for Python files in my Documents"** - Uses `search_files` tool
-- **"What files are in my Desktop?"** - Uses `list_directory` tool
+<details>
+<summary><strong>💾 Context & Memory</strong></summary>
 
----
+- `add_context` - Store information persistently
+- `get_context` - Retrieve stored context
+- `search_context` - Full-text search with filters
 
-## 🛠️ Local Development (FastAPI Server)
+</details>
 
-Install dependencies:
+<details>
+<summary><strong>🏗️ Project Templates</strong></summary>
 
-```bash
-pip install -r requirements.txt
-```
+- `create_project_template` - Scaffold new projects
+- **Supported**: Python, JavaScript, React, FastAPI, MCP Server
 
-Run the server:
-
-```bash
-uvicorn personal_mcp_server:app --reload
-```
-
-Or run directly:
-
-```bash
-python personal_mcp_server.py
-```
-
-The server will start on `http://localhost:8000` with:
-- API documentation at `http://localhost:8000/docs`
-- Status endpoint at `http://localhost:8000/status`
+</details>
 
 ---
 
-## ☁️ Deployment
+## 📡 API Reference
 
-### Railway / Fly.io
+### Context Management
+```http
+POST   /add_context      # Store new context
+GET    /get_context      # Retrieve context by ID
+DELETE /delete_context   # Remove context stream
+```
 
-Deploy using the included configuration files:
+### Repository Operations
+```http
+POST   /repos/update_context  # Repository-specific updates
+```
 
-- `personal_mcp_server.py` (main FastAPI app)
-- `Procfile` (process configuration)
-- `requirements.txt` (dependencies)
+### System
+```http
+GET    /status          # Server health and statistics
+GET    /               # Basic server information
+```
 
-**Procfile:**
-```txt
-web: uvicorn personal_mcp_server:app --host 0.0.0.0 --port $PORT
+---
+
+## 📁 Project Structure
+
+```
+Personal-MCP-Server/
+├── 🚀 mcp_server.py           # MCP mode entry point
+├── 🌐 unified_mcp_server.py   # Main server implementation
+├── 📋 requirements.txt        # Python dependencies
+├── 💾 context_data.json       # Persistent storage
+├── 📖 README.md              # This documentation
+├── 🚢 Procfile               # Deployment config
+└── 📚 UNIFIED_SERVER_GUIDE.md # Detailed guide
+```
+
+---
+
+## 🔧 Development
+
+### Local Development
+```bash
+# Run with auto-reload
+python3 unified_mcp_server.py --http
+
+# The server will automatically reload on code changes
 ```
 
 ### Environment Variables
-
-- `PORT`: Server port (default: 8000)
-
-### Data Persistence
-
-Context data is automatically saved to `context_data.json` in the working directory. This file will be created on first use and updated on every context modification.
+- `PORT` - Server port (default: 8000)
+- `DEBUG` - Enable debug mode
 
 ---
 
-## 🧩 Use Cases
+## 🚀 Deployment
 
-- **Real-time LLM assistant memory** with persistent context
-- **Task/agent sync across sessions** with reliable storage
-- **Developer journaling via CLI hooks** with structured logging
-- **Personal LangChain-style runtime** with context management
-- **Project documentation** with automatic timestamping
-- **Code review context** with metadata tracking
+### Heroku
+The project includes a `Procfile` for easy Heroku deployment:
 
----
-
-## 🧠 Context Organization Tips
-
-Structure your context streams with consistent naming:
-
-```
-chat_context_live          # Live chat sessions
-repo_project_name          # Repository updates
-task_2025_resume_refactor  # Specific tasks
-project_agent_kernel       # Project-specific context
-debug_auth_service         # Debugging sessions
-meeting_2025_01_17         # Meeting notes
+```bash
+git push heroku main
 ```
 
-Use metadata for enhanced organization:
-```json
-{
-  "type": "task|repo|chat|debug|meeting",
-  "priority": "low|medium|high|urgent",
-  "source": "terminal|ide|manual|webhook",
-  "tags": ["backend", "auth", "refactor"]
-}
+### Docker
+```dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+CMD ["python", "unified_mcp_server.py", "--http"]
 ```
 
 ---
 
-## 📊 Monitoring & Debugging
+## 🤝 Contributing
 
-### Logging
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
-The server provides comprehensive logging:
-- INFO: General operations and context additions
-- ERROR: Failed operations and exceptions
-- DEBUG: Detailed data operations
-
-### Health Checks
-
-Use the `/status` endpoint to monitor:
-- Server uptime
-- Number of active context streams
-- Total stored items
-- Overall system health
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
 ---
 
-## 🔒 Security Considerations
+## 📄 License
 
-**Current Implementation:**
-- No authentication (suitable for local/private networks)
-- CORS enabled for all origins
-- Input validation and sanitization
-- Error handling without sensitive data exposure
-
-**For Production:**
-- Add API key authentication
-- Configure CORS for specific origins
-- Implement rate limiting
-- Use HTTPS
-- Regular data backups
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 📡 Roadmap
+<div align="center">
 
-### Planned Enhancements
-- 🔐 **Authentication**: API key and JWT support
-- 🗄️ **Database Backend**: PostgreSQL/SQLite integration
-- 🔍 **Search & Filtering**: Full-text search and advanced filtering
-- 📊 **Analytics Dashboard**: Web UI for context visualization
-- 🔄 **Webhooks**: Real-time notifications for context updates
-- 📦 **Backup/Export**: Data export and backup utilities
-- 🏷️ **Tagging System**: Enhanced metadata and tagging
-- 📈 **Metrics**: Performance monitoring and usage analytics
+**Built with ❤️ by [Liad Matusovsky](https://github.com/LiadMatus)**
 
-### Optional Integrations
-- Supabase/Firebase backend
-- Embedding & semantic search layer
-- Slack/Discord notifications
-- GitHub integration for automatic repo updates
+*Empowering AI assistants with powerful development tools*
 
----
-
-## 🚀 Performance
-
-- **Startup**: Fast initialization with automatic data loading
-- **Storage**: Efficient JSON-based persistence
-- **Memory**: Optimized in-memory operations
-- **Scalability**: Suitable for personal to small team usage
-
----
-
-Built to supercharge your personal coding workflow with enterprise-grade reliability.
+</div>
