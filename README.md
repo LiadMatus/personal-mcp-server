@@ -19,7 +19,7 @@
 ## ✨ Features
 
 ### 🤖 **MCP Protocol Support**
-Perfect integration with AI assistants like Cline, providing:
+Perfect integration with AI assistants like Claude and Cline, providing:
 
 - 🔧 **Git Operations** - Complete repository management with branch operations
 - 📁 **File Management** - Read, write, search, and batch operations  
@@ -90,13 +90,13 @@ mypy .
 
 ### 🔌 **MCP Mode** (AI Assistant Integration)
 
-Perfect for Cline and other MCP-compatible AI assistants:
+Perfect for Claude, Cline and other MCP-compatible AI assistants:
 
 ```bash
 python3 mcp_server.py
 ```
 
-**Cline Configuration:**
+**Claude Desktop Configuration:**
 ```json
 {
   "mcpServers": {
@@ -289,10 +289,11 @@ Personal-MCP-Server/
 ├── 🚀 DEPLOYMENT.md          # Deployment guide
 ├── 🤝 CONTRIBUTING.md        # Contribution guidelines
 ├── 📄 LICENSE                # MIT license
-├── 🧪 tests/                 # Test suite
-│   ├── __init__.py
-│   └── test_context_store.py
-└── 📚 docs/                  # Additional documentation
+├── 📋 Procfile               # Heroku deployment config
+├── 📚 UNIFIED_SERVER_GUIDE.md # Additional server documentation
+└── 🧪 tests/                 # Test suite
+    ├── __init__.py
+    └── test_context_store.py
 ```
 
 ---
@@ -421,7 +422,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **MCP Protocol** - [Model Context Protocol](https://modelcontextprotocol.io)
 - **FastAPI** - Modern, fast web framework for building APIs
-- **Cline** - AI assistant that inspired this integration
+- **Claude & Cline** - AI assistants that inspired this integration
 - **Contributors** - Everyone who has contributed to this project
 
 ---
