@@ -45,6 +45,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger("unified-personal-mcp-server")
 
+# Session tracking
+import uuid
+SESSION_ID = str(uuid.uuid4())[:8]
+SESSION_START_TIME = datetime.now(timezone.utc)
+
 # =============================================================================
 # SHARED CONFIGURATION AND UTILITIES
 # =============================================================================
@@ -72,6 +77,230 @@ DEFAULT_IGNORE_PATTERNS = [
     "*.tmp",
     "*.temp"
 ]
+
+# =============================================================================
+# AUTOMATIC CONTEXT LOGGING
+# =============================================================================
+
+def log_interaction(tool_name: str, arguments: Dict[str, Any], result: Any, execution_time: float, success: bool = True, error: str = None):
+    """Log MCP tool interactions automatically"""
+    try:
+        # Sanitize large content
+        sanitized_args = {}
+        for key, value in arguments.items():
+            if isinstance(value, str) and len(value) > 1000:
+                sanitized_args[key] = f"{value[:500]}... [truncated {len(value)} chars]"
+            else:
+                sanitized_args[key] = value
+        
+        # Sanitize result
+        result_summary = str(result)
+        if len(result_summary) > 2000:
+            result_summary = f"{result_summary[:1000]}... [truncated {len(result_summary)} chars]"
+        
+        # Create context entry
+        context_content = f"Tool: {tool_name}\n"
+        context_content += f"Arguments: {json.dumps(sanitized_args, indent=2)}\n"
+        context_content += f"Success: {success}\n"
+        context_content += f"Execution Time: {execution_time:.3f}s\n"
+        
+        if error:
+            context_content += f"Error: {error}\n"
+        else:
+            context_content += f"Result: {result_summary}\n"
+        
+        # Log to session context
+        session_context = ContextItem(
+            id=f"session_{SESSION_ID}",
+            content=context_content,
+            metadata={
+                "type": "tool_interaction",
+                "tool_name": tool_name,
+                "success": success,
+                "execution_time": execution_time,
+                "session_id": SESSION_ID,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        )
+        
+        context_store.add_context(session_context)
+        
+        # Also log to tool-specific context if it's a significant operation
+        if tool_name in ["git_commit", "write_file", "create_project_template", "git_command"]:
+            tool_context = ContextItem(
+                id=f"tool_{tool_name}",
+                content=context_content,
+                metadata={
+                    "type": "significant_operation",
+                    "tool_name": tool_name,
+                    "success": success,
+                    "session_id": SESSION_ID
+                }
+            )
+            context_store.add_context(tool_context)
+            
+    except Exception as e:
+        logger.error(f"Failed to log interaction: {e}")
+
+def detect_project_type(project_path: Path) -> Dict[str, Any]:
+    """Detect project type and technologies"""
+    project_info = {
+        "type": "unknown",
+        "technologies": [],
+        "config_files": [],
+        "key_files": []
+    }
+    
+    try:
+        # Check for common project files
+        files_to_check = [
+            ("package.json", "javascript/node"),
+            ("requirements.txt", "python"),
+            ("Pipfile", "python"),
+            ("pyproject.toml", "python"),
+            ("Cargo.toml", "rust"),
+            ("go.mod", "go"),
+            ("pom.xml", "java/maven"),
+            ("build.gradle", "java/gradle"),
+            ("Dockerfile", "docker"),
+            ("docker-compose.yml", "docker"),
+            (".gitignore", "git"),
+            ("README.md", "documentation"),
+            ("tsconfig.json", "typescript"),
+            ("angular.json", "angular"),
+            ("vue.config.js", "vue"),
+            ("next.config.js", "nextjs"),
+            ("gatsby-config.js", "gatsby"),
+            ("webpack.config.js", "webpack"),
+            ("vite.config.js", "vite")
+        ]
+        
+        for filename, tech in files_to_check:
+            file_path = project_path / filename
+            if file_path.exists():
+                project_info["config_files"].append(filename)
+                if tech not in project_info["technologies"]:
+                    project_info["technologies"].append(tech)
+        
+        # Determine primary project type
+        if "package.json" in project_info["config_files"]:
+            try:
+                with open(project_path / "package.json", 'r') as f:
+                    package_data = json.load(f)
+                    if "react" in package_data.get("dependencies", {}):
+                        project_info["type"] = "react"
+                    elif "vue" in package_data.get("dependencies", {}):
+                        project_info["type"] = "vue"
+                    elif "angular" in package_data.get("dependencies", {}):
+                        project_info["type"] = "angular"
+                    elif "next" in package_data.get("dependencies", {}):
+                        project_info["type"] = "nextjs"
+                    else:
+                        project_info["type"] = "javascript"
+            except:
+                project_info["type"] = "javascript"
+                
+        elif any(f in project_info["config_files"] for f in ["requirements.txt", "Pipfile", "pyproject.toml"]):
+            project_info["type"] = "python"
+            
+        elif "Cargo.toml" in project_info["config_files"]:
+            project_info["type"] = "rust"
+            
+        elif "go.mod" in project_info["config_files"]:
+            project_info["type"] = "go"
+            
+        elif any(f in project_info["config_files"] for f in ["pom.xml", "build.gradle"]):
+            project_info["type"] = "java"
+        
+        # Find key source files
+        common_source_files = [
+            "main.py", "app.py", "server.py", "index.js", "main.js", "app.js",
+            "index.html", "App.tsx", "App.jsx", "main.rs", "main.go"
+        ]
+        
+        for filename in common_source_files:
+            if (project_path / filename).exists():
+                project_info["key_files"].append(filename)
+                
+    except Exception as e:
+        logger.warning(f"Error detecting project type for {project_path}: {e}")
+    
+    return project_info
+
+async def initialize_project_context():
+    """Initialize context with current project information"""
+    try:
+        logger.info("Initializing project context...")
+        
+        # System overview
+        system_info = {
+            "session_id": SESSION_ID,
+            "session_start": SESSION_START_TIME.isoformat(),
+            "home_directory": str(HOME_DIR),
+            "projects_directory": str(PROJECTS_DIR),
+            "desktop_directory": str(DESKTOP_DIR),
+            "current_working_directory": str(Path.cwd())
+        }
+        
+        system_context = ContextItem(
+            id="system_overview",
+            content=f"MCP Server Session Started\n\nSession ID: {SESSION_ID}\nStart Time: {SESSION_START_TIME.isoformat()}\nSystem Info: {json.dumps(system_info, indent=2)}",
+            metadata={
+                "type": "system_initialization",
+                "session_id": SESSION_ID
+            }
+        )
+        context_store.add_context(system_context)
+        
+        # Discover and catalog projects
+        all_projects = []
+        
+        for search_dir in [PROJECTS_DIR, DESKTOP_DIR]:
+            if search_dir.exists():
+                repos = find_git_repositories(search_dir)
+                for repo_path in repos:
+                    try:
+                        repo_info = get_repo_info(repo_path)
+                        project_type_info = detect_project_type(repo_path)
+                        
+                        project_data = {
+                            **repo_info,
+                            "project_type": project_type_info
+                        }
+                        all_projects.append(project_data)
+                        
+                        # Create individual project context
+                        project_context = ContextItem(
+                            id=f"project_{repo_path.name}",
+                            content=f"Project Discovery: {repo_path.name}\n\n{json.dumps(project_data, indent=2)}",
+                            metadata={
+                                "type": "project_discovery",
+                                "project_name": repo_path.name,
+                                "project_type": project_type_info["type"],
+                                "session_id": SESSION_ID
+                            }
+                        )
+                        context_store.add_context(project_context)
+                        
+                    except Exception as e:
+                        logger.warning(f"Error processing project {repo_path}: {e}")
+        
+        # Create projects overview context
+        projects_overview = ContextItem(
+            id="projects_overview",
+            content=f"Discovered Projects Overview\n\nTotal Projects: {len(all_projects)}\n\nProjects:\n{json.dumps(all_projects, indent=2)}",
+            metadata={
+                "type": "projects_overview",
+                "total_projects": len(all_projects),
+                "session_id": SESSION_ID
+            }
+        )
+        context_store.add_context(projects_overview)
+        
+        logger.info(f"Initialized context with {len(all_projects)} projects")
+        
+    except Exception as e:
+        logger.error(f"Error initializing project context: {e}")
 
 # =============================================================================
 # FASTAPI MODELS AND CONTEXT STORAGE
@@ -702,7 +931,12 @@ async def handle_list_tools() -> List[Tool]:
 
 @mcp_server.call_tool()
 async def handle_call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
-    """Handle tool calls"""
+    """Handle tool calls with automatic context logging"""
+    start_time = datetime.now()
+    success = True
+    error_msg = None
+    result = None
+    
     try:
         if name == "list_git_repos":
             search_path = arguments.get("search_path")
@@ -1407,17 +1641,28 @@ async def handle_call_tool(name: str, arguments: Dict[str, Any]) -> List[TextCon
                 )]
         
         else:
-            return [TextContent(
+            result = [TextContent(
                 type="text",
                 text=json.dumps({"error": f"Unknown tool: {name}"})
             )]
-    
+            success = False
+            error_msg = f"Unknown tool: {name}"
+            
     except Exception as e:
         logger.error(f"Error in tool {name}: {e}")
-        return [TextContent(
+        result = [TextContent(
             type="text",
             text=json.dumps({"error": str(e)})
         )]
+        success = False
+        error_msg = str(e)
+    
+    finally:
+        # Log the interaction
+        execution_time = (datetime.now() - start_time).total_seconds()
+        log_interaction(name, arguments, result, execution_time, success, error_msg)
+        
+    return result
 
 # =============================================================================
 # FASTAPI APPLICATION
@@ -1595,6 +1840,9 @@ async def root():
 async def run_mcp_server():
     """Run the MCP server via stdio"""
     from mcp.types import ServerCapabilities, ToolsCapability, ResourcesCapability
+    
+    # Initialize project context on startup
+    await initialize_project_context()
     
     async with stdio_server() as (read_stream, write_stream):
         await mcp_server.run(
