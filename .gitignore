@@ -233,3 +233,11 @@ context_data.json
 *.log
 .env.local
 .env.production
+
+# Docker
+.dockerignore
+nginx.conf
+
+# Deployment
+.railway/
+.vercel/
